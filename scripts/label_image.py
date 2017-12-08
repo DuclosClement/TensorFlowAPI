@@ -17,12 +17,37 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 import argparse
 import sys
 import time
 
+from logging.handlers import RotatingFileHandler
 import numpy as np
 import tensorflow as tf
+
+# création de l'objet logger qui va nous servir à écrire dans les logs
+logger = logging.getLogger()
+# on met le niveau du logger à DEBUG, comme ça il écrit tout
+logger.setLevel(logging.DEBUG)
+
+# création d'un formateur qui va ajouter le temps, le niveau
+# de chaque message quand on écrira un message dans le log
+formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+# création d'un handler qui va rediriger une écriture du log vers
+# un fichier en mode 'append', avec 1 backup et une taille max de 1Mo
+file_handler = RotatingFileHandler('activity.log', 'a', 1000000, 1)
+# on lui met le niveau sur DEBUG, on lui dit qu'il doit utiliser le formateur
+# créé précédement et on ajoute ce handler au logger
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# création d'un second handler qui va rediriger chaque écriture de log
+# sur la console
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+logger.addHandler(stream_handler)
 
 def load_graph(model_file):
   graph = tf.Graph()
@@ -67,71 +92,45 @@ def load_labels(label_file):
     label.append(l.rstrip())
   return label
 
-if __name__ == "__main__":
-  file_name = "tf_files/flower_photos/daisy/3475870145_685a19116d.jpg"
-  model_file = "tf_files/retrained_graph.pb"
-  label_file = "tf_files/retrained_labels.txt"
-  input_height = 224
-  input_width = 224
-  input_mean = 128
-  input_std = 128
-  input_layer = "input"
-  output_layer = "final_result"
+def classify(file_name):
+  model_file = "/data/tensorflow-for-poets-2/tf_files/inception_graph.pb"
+  label_file = "/data/tensorflow-for-poets-2/tf_files/inception_labels.txt"
+  input_height = 299
+  input_width = 299
+  input_mean = 0
+  input_std = 255
+  input_layer = "Mul"
+  output_layer = "final_result_inception"
 
-  parser = argparse.ArgumentParser()
-  parser.add_argument("--image", help="image to be processed")
-  parser.add_argument("--graph", help="graph/model to be executed")
-  parser.add_argument("--labels", help="name of file containing labels")
-  parser.add_argument("--input_height", type=int, help="input height")
-  parser.add_argument("--input_width", type=int, help="input width")
-  parser.add_argument("--input_mean", type=int, help="input mean")
-  parser.add_argument("--input_std", type=int, help="input std")
-  parser.add_argument("--input_layer", help="name of input layer")
-  parser.add_argument("--output_layer", help="name of output layer")
-  args = parser.parse_args()
-
-  if args.graph:
-    model_file = args.graph
-  if args.image:
-    file_name = args.image
-  if args.labels:
-    label_file = args.labels
-  if args.input_height:
-    input_height = args.input_height
-  if args.input_width:
-    input_width = args.input_width
-  if args.input_mean:
-    input_mean = args.input_mean
-  if args.input_std:
-    input_std = args.input_std
-  if args.input_layer:
-    input_layer = args.input_layer
-  if args.output_layer:
-    output_layer = args.output_layer
-
+  logger.info('avant graph')
   graph = load_graph(model_file)
+  logger.info('Apres graph')
   t = read_tensor_from_image_file(file_name,
                                   input_height=input_height,
                                   input_width=input_width,
                                   input_mean=input_mean,
                                   input_std=input_std)
-
+  logger.info('Apres appel tensor')
   input_name = "import/" + input_layer
   output_name = "import/" + output_layer
   input_operation = graph.get_operation_by_name(input_name);
   output_operation = graph.get_operation_by_name(output_name);
+  logger.info('Avant appel fonction')
 
   with tf.Session(graph=graph) as sess:
     start = time.time()
+    logger.info('Avant sess.run')
     results = sess.run(output_operation.outputs[0],
                       {input_operation.outputs[0]: t})
     end=time.time()
+  logger.info('Avant squeeze')
   results = np.squeeze(results)
-
+  logger.info('Apres squeeze')
   top_k = results.argsort()[-5:][::-1]
   labels = load_labels(label_file)
-
+  table = []
   print('\nEvaluation time (1-image): {:.3f}s\n'.format(end-start))
 
   for i in top_k:
-    print(labels[i], results[i])
+    table.append({'Categorie' : str(labels[i]),'probabilite' :float(results[i])})
+  return table

@@ -113,30 +113,7 @@ from tensorflow.python.platform import gfile
 from tensorflow.python.util import compat
 
 FLAGS = None
-image_dir = '/Disk/Logos'
-model_dir='/data/tensorflow-for-poets-2/tf_files/imagenet_inception'
-#architecture="mobilenet_0.50_224"
-output_graph='/data/tensorflow-for-poets-2/tf_files/inception_graph.pb'
-intermediate_output_graph_dir='/data/tensorflow-for-poets-2/tf_files/intermediate_graph_inception'
-intermediate_store_frequency=0
-output_labels='/data/tensorflow-for-poets-2/tf_files/inception_labels.txt'
-summaries_dir='/data/tensorflow-for-poets-2/tf_files/training_summaries/inception'
-how_many_training_steps=500
-learning_rate=0.01
-testing_percentage=10
-validation_percentage=10
-eval_step_interval=10
-train_batch_size=100
-test_batch_size=-1
-validation_batch_size=100
-print_misclassified_test_images=False
-bottleneck_dir='/data/tensorflow-for-poets-2/tf_files/bottleneck_inception'
-final_tensor_name='final_result_inception'
-flip_left_right=False
-random_crop=0
-random_scale=0
-random_brightness=0
-architecture='inception_v3'
+
 # These are all parameters that are tied to the particular model architecture
 # we're using for Inception v3. These include things like tensor names and their
 # sizes. If you want to adapt this script to work with another model, you will
@@ -293,7 +270,7 @@ def create_model_graph(model_info):
     manipulating.
   """
   with tf.Graph().as_default() as graph:
-    model_path = os.path.join(model_dir, model_info['model_file_name'])
+    model_path = os.path.join(FLAGS.model_dir, model_info['model_file_name'])
     with gfile.FastGFile(model_path, 'rb') as f:
       graph_def = tf.GraphDef()
       graph_def.ParseFromString(f.read())
@@ -342,7 +319,7 @@ def maybe_download_and_extract(data_url):
   Args:
     data_url: Web location of the tar file containing the pretrained model.
   """
-  dest_directory = model_dir
+  dest_directory = FLAGS.model_dir
   if not os.path.exists(dest_directory):
     os.makedirs(dest_directory)
   filename = data_url.split('/')[-1]
@@ -816,7 +793,7 @@ def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
   tf.summary.scalar('cross_entropy', cross_entropy_mean)
 
   with tf.name_scope('train'):
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+    optimizer = tf.train.GradientDescentOptimizer(FLAGS.learning_rate)
     train_step = optimizer.minimize(cross_entropy_mean)
 
   return (train_step, cross_entropy_mean, bottleneck_input, ground_truth_input,
@@ -847,7 +824,7 @@ def add_evaluation_step(result_tensor, ground_truth_tensor):
 
 def save_graph_to_file(sess, graph, graph_file_name):
   output_graph_def = graph_util.convert_variables_to_constants(
-      sess, graph.as_graph_def(), [final_tensor_name])
+      sess, graph.as_graph_def(), [FLAGS.final_tensor_name])
   with gfile.FastGFile(graph_file_name, 'wb') as f:
     f.write(output_graph_def.SerializeToString())
   return
@@ -855,11 +832,11 @@ def save_graph_to_file(sess, graph, graph_file_name):
 
 def prepare_file_system():
   # Setup the directory we'll write summaries to for TensorBoard
-  if tf.gfile.Exists(summaries_dir):
-    tf.gfile.DeleteRecursively(summaries_dir)
-  tf.gfile.MakeDirs(summaries_dir)
-  if intermediate_store_frequency > 0:
-    ensure_dir_exists(intermediate_output_graphs_dir)
+  if tf.gfile.Exists(FLAGS.summaries_dir):
+    tf.gfile.DeleteRecursively(FLAGS.summaries_dir)
+  tf.gfile.MakeDirs(FLAGS.summaries_dir)
+  if FLAGS.intermediate_store_frequency > 0:
+    ensure_dir_exists(FLAGS.intermediate_output_graphs_dir)
   return
 
 
@@ -987,17 +964,16 @@ def add_jpeg_decoding(input_width, input_height, input_depth, input_mean,
   return jpeg_data, mul_image
 
 
-def training():
-
+def main(_):
   # Needed to make sure the logging output is visible.
   # See https://github.com/tensorflow/tensorflow/issues/3047
   tf.logging.set_verbosity(tf.logging.INFO)
 
   # Prepare necessary directories  that can be used during training
-  #prepare_file_system(summaries_dir)
+  prepare_file_system()
 
   # Gather information about the model architecture we'll be using.
-  model_info = create_model_info(architecture)
+  model_info = create_model_info(FLAGS.architecture)
   if not model_info:
     tf.logging.error('Did not recognize architecture flag')
     return -1
@@ -1008,22 +984,22 @@ def training():
       create_model_graph(model_info))
 
   # Look at the folder structure, and create lists of all the images.
-  image_lists = create_image_lists(image_dir, testing_percentage,
-                                   validation_percentage)
+  image_lists = create_image_lists(FLAGS.image_dir, FLAGS.testing_percentage,
+                                   FLAGS.validation_percentage)
   class_count = len(image_lists.keys())
   if class_count == 0:
-    tf.logging.error('No valid folders of images found at ' + image_dir)
+    tf.logging.error('No valid folders of images found at ' + FLAGS.image_dir)
     return -1
   if class_count == 1:
     tf.logging.error('Only one valid folder of images found at ' +
-                     image_dir +
+                     FLAGS.image_dir +
                      ' - multiple classes are needed for classification.')
     return -1
 
   # See if the command-line flags mean we're applying any distortions.
   do_distort_images = should_distort_images(
-      flip_left_right, random_crop, random_scale,
-      random_brightness)
+      FLAGS.flip_left_right, FLAGS.random_crop, FLAGS.random_scale,
+      FLAGS.random_brightness)
 
   with tf.Session(graph=graph) as sess:
     # Set up the image decoding sub-graph.
@@ -1036,22 +1012,22 @@ def training():
       # We will be applying distortions, so setup the operations we'll need.
       (distorted_jpeg_data_tensor,
        distorted_image_tensor) = add_input_distortions(
-           flip_left_right, random_crop, random_scale,
-           random_brightness, model_info['input_width'],
+           FLAGS.flip_left_right, FLAGS.random_crop, FLAGS.random_scale,
+           FLAGS.random_brightness, model_info['input_width'],
            model_info['input_height'], model_info['input_depth'],
            model_info['input_mean'], model_info['input_std'])
     else:
       # We'll make sure we've calculated the 'bottleneck' image summaries and
       # cached them on disk.
-      cache_bottlenecks(sess, image_lists, image_dir,
-                        bottleneck_dir, jpeg_data_tensor,
+      cache_bottlenecks(sess, image_lists, FLAGS.image_dir,
+                        FLAGS.bottleneck_dir, jpeg_data_tensor,
                         decoded_image_tensor, resized_image_tensor,
-                        bottleneck_tensor, architecture)
+                        bottleneck_tensor, FLAGS.architecture)
 
     # Add the new layer that we'll be training.
     (train_step, cross_entropy, bottleneck_input, ground_truth_input,
      final_tensor) = add_final_training_ops(
-         len(image_lists.keys()), final_tensor_name, bottleneck_tensor,
+         len(image_lists.keys()), FLAGS.final_tensor_name, bottleneck_tensor,
          model_info['bottleneck_tensor_size'])
 
     # Create the operations we need to evaluate the accuracy of our new layer.
@@ -1060,33 +1036,33 @@ def training():
 
     # Merge all the summaries and write them out to the summaries_dir
     merged = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter(summaries_dir + '/train',
+    train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train',
                                          sess.graph)
 
     validation_writer = tf.summary.FileWriter(
-        summaries_dir + '/validation')
+        FLAGS.summaries_dir + '/validation')
 
     # Set up all our weights to their initial default values.
     init = tf.global_variables_initializer()
     sess.run(init)
 
     # Run the training for as many cycles as requested on the command line.
-    for i in range(how_many_training_steps):
+    for i in range(FLAGS.how_many_training_steps):
       # Get a batch of input bottleneck values, either calculated fresh every
       # time with distortions applied, or from the cache stored on disk.
       if do_distort_images:
         (train_bottlenecks,
          train_ground_truth) = get_random_distorted_bottlenecks(
-             sess, image_lists, train_batch_size, 'training',
-             image_dir, distorted_jpeg_data_tensor,
+             sess, image_lists, FLAGS.train_batch_size, 'training',
+             FLAGS.image_dir, distorted_jpeg_data_tensor,
              distorted_image_tensor, resized_image_tensor, bottleneck_tensor)
       else:
         (train_bottlenecks,
          train_ground_truth, _) = get_random_cached_bottlenecks(
-             sess, image_lists, train_batch_size, 'training',
-             bottleneck_dir, image_dir, jpeg_data_tensor,
+             sess, image_lists, FLAGS.train_batch_size, 'training',
+             FLAGS.bottleneck_dir, FLAGS.image_dir, jpeg_data_tensor,
              decoded_image_tensor, resized_image_tensor, bottleneck_tensor,
-             architecture)
+             FLAGS.architecture)
       # Feed the bottlenecks and ground truth into the graph, and run a training
       # step. Capture training summaries for TensorBoard with the `merged` op.
       train_summary, _ = sess.run(
@@ -1096,8 +1072,8 @@ def training():
       train_writer.add_summary(train_summary, i)
 
       # Every so often, print out how well the graph is training.
-      is_last_step = (i + 1 == how_many_training_steps)
-      if (i % eval_step_interval) == 0 or is_last_step:
+      is_last_step = (i + 1 == FLAGS.how_many_training_steps)
+      if (i % FLAGS.eval_step_interval) == 0 or is_last_step:
         train_accuracy, cross_entropy_value = sess.run(
             [evaluation_step, cross_entropy],
             feed_dict={bottleneck_input: train_bottlenecks,
@@ -1108,10 +1084,10 @@ def training():
                         (datetime.now(), i, cross_entropy_value))
         validation_bottlenecks, validation_ground_truth, _ = (
             get_random_cached_bottlenecks(
-                sess, image_lists, validation_batch_size, 'validation',
-                bottleneck_dir, image_dir, jpeg_data_tensor,
+                sess, image_lists, FLAGS.validation_batch_size, 'validation',
+                FLAGS.bottleneck_dir, FLAGS.image_dir, jpeg_data_tensor,
                 decoded_image_tensor, resized_image_tensor, bottleneck_tensor,
-                architecture))
+                FLAGS.architecture))
         # Run a validation step and capture training summaries for TensorBoard
         # with the `merged` op.
         validation_summary, validation_accuracy = sess.run(
@@ -1124,11 +1100,11 @@ def training():
                          len(validation_bottlenecks)))
 
       # Store intermediate results
-      intermediate_frequency = intermediate_store_frequency
+      intermediate_frequency = FLAGS.intermediate_store_frequency
 
       if (intermediate_frequency > 0 and (i % intermediate_frequency == 0)
           and i > 0):
-        intermediate_file_name = (intermediate_output_graphs_dir +
+        intermediate_file_name = (FLAGS.intermediate_output_graphs_dir +
                                   'intermediate_' + str(i) + '.pb')
         tf.logging.info('Save intermediate result to : ' +
                         intermediate_file_name)
@@ -1138,10 +1114,10 @@ def training():
     # some new images we haven't used before.
     test_bottlenecks, test_ground_truth, test_filenames = (
         get_random_cached_bottlenecks(
-            sess, image_lists, test_batch_size, 'testing',
-            bottleneck_dir, image_dir, jpeg_data_tensor,
+            sess, image_lists, FLAGS.test_batch_size, 'testing',
+            FLAGS.bottleneck_dir, FLAGS.image_dir, jpeg_data_tensor,
             decoded_image_tensor, resized_image_tensor, bottleneck_tensor,
-            architecture))
+            FLAGS.architecture))
     test_accuracy, predictions = sess.run(
         [evaluation_step, prediction],
         feed_dict={bottleneck_input: test_bottlenecks,
@@ -1149,7 +1125,7 @@ def training():
     tf.logging.info('Final test accuracy = %.1f%% (N=%d)' %
                     (test_accuracy * 100, len(test_bottlenecks)))
 
-    if print_misclassified_test_images:
+    if FLAGS.print_misclassified_test_images:
       tf.logging.info('=== MISCLASSIFIED TEST IMAGES ===')
       for i, test_filename in enumerate(test_filenames):
         if predictions[i] != test_ground_truth[i].argmax():
@@ -1159,17 +1135,17 @@ def training():
 
     # Write out the trained graph and labels with the weights stored as
     # constants.
-    save_graph_to_file(sess, graph, output_graph)
-    with gfile.FastGFile(output_labels, 'w') as f:
+    save_graph_to_file(sess, graph, FLAGS.output_graph)
+    with gfile.FastGFile(FLAGS.output_labels, 'w') as f:
       f.write('\n'.join(image_lists.keys()) + '\n')
 
 
-def apprentissage(imagePath):
+if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument(
       '--image_dir',
       type=str,
-      default=imagePath,
+      default='',
       help='Path to folders of labeled images.'
   )
   parser.add_argument(
@@ -1202,13 +1178,13 @@ def apprentissage(imagePath):
   parser.add_argument(
       '--summaries_dir',
       type=str,
-      default='/data/tensorflow-for-poets-2/tf_files/training_summaries/mobilenet_0.50_224',
+      default='/tmp/retrain_logs',
       help='Where to save summary logs for TensorBoard.'
   )
   parser.add_argument(
       '--how_many_training_steps',
       type=int,
-      default=500,
+      default=4000,
       help='How many training steps to run before ending.'
   )
   parser.add_argument(
@@ -1335,7 +1311,7 @@ def apprentissage(imagePath):
   parser.add_argument(
       '--architecture',
       type=str,
-      default='mobilenet_0.50_224',
+      default='inception_v3',
       help="""\
       Which model architecture to use. 'inception_v3' is the most accurate, but
       also the slowest. For faster or smaller models, chose a MobileNet with the
