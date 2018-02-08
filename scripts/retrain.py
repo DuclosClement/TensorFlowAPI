@@ -113,14 +113,14 @@ from tensorflow.python.platform import gfile
 from tensorflow.python.util import compat
 
 FLAGS = None
-image_dir = '/Disk/Logos'
-model_dir='/data/tensorflow-for-poets-2/tf_files/imagenet_inception'
+image_dir = '/Disk/PersistantData/Logos'
+model_dir='/Disk/PersistantData/TrainedData/imagenet_inception'
 #architecture="mobilenet_0.50_224"
-output_graph='/data/tensorflow-for-poets-2/tf_files/inception_graph.pb'
-intermediate_output_graph_dir='/data/tensorflow-for-poets-2/tf_files/intermediate_graph_inception'
+output_graph='/Disk/PersistantData/TrainedData/inception_graph.pb'
+intermediate_output_graph_dir='/Disk/PersistantData/TrainedData/intermediate_graph_inception'
 intermediate_store_frequency=0
-output_labels='/data/tensorflow-for-poets-2/tf_files/inception_labels.txt'
-summaries_dir='/data/tensorflow-for-poets-2/tf_files/training_summaries/inception'
+output_labels='/Disk/PersistantData/TrainedData/inception_labels.txt'
+summaries_dir='/Disk/PersistantData/TrainedData/training_summaries/inception'
 how_many_training_steps=500
 learning_rate=0.01
 testing_percentage=10
@@ -130,7 +130,7 @@ train_batch_size=100
 test_batch_size=-1
 validation_batch_size=100
 print_misclassified_test_images=False
-bottleneck_dir='/data/tensorflow-for-poets-2/tf_files/bottleneck_inception'
+bottleneck_dir='/Disk/PersistantData/TrainedData/bottleneck_inception'
 final_tensor_name='final_result_inception'
 flip_left_right=False
 random_crop=0
