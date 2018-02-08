@@ -93,8 +93,8 @@ def load_labels(label_file):
   return label
 
 def classify(file_name):
-  model_file = "/data/tensorflow-for-poets-2/tf_files/inception_graph.pb"
-  label_file = "/data/tensorflow-for-poets-2/tf_files/inception_labels.txt"
+  model_file = "/Disk/PersistantData/TrainedData/inception_graph.pb"
+  label_file = "/Disk/PersistantData/TrainedData/inception_labels.txt"
   input_height = 299
   input_width = 299
   input_mean = 0
