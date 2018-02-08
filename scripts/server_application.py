@@ -71,10 +71,10 @@ def trainRoad():
             return redirect(request.url)
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            if not os.path.isdir("/Disk/Logos/"+request.form['categorie']):
-                os.mkdir("/Disk/Logos/"+request.form['categorie'])
-            file.save(os.path.join('/Disk/Logos/'+ request.form['categorie'], filename))
-            listCategories = [x[0] for x in os.walk("/Disk/Logos")]
+            if not os.path.isdir("/Disk/PersistantData/Logos/"+request.form['categorie']):
+                os.mkdir("/Disk/PersistantData/Logos/"+request.form['categorie'])
+            file.save(os.path.join('/Disk/PersistantData/Logos/'+ request.form['categorie'], filename))
+            listCategories = [x[0] for x in os.walk("/Disk/PersistantData/Logos/")]
             listCategories.pop(0)
             nbFiles = []
             categorieNonRemplie = ''
@@ -91,7 +91,7 @@ def trainRoad():
                 i = i + 1
 
             if nbFichiersSuffisants == False:
-                categorieNonRemplie = categorieNonRemplie.replace('/Disk/Logos/','')
+                categorieNonRemplie = categorieNonRemplie.replace('/Disk/PersistantData/Logos/','')
                 return('Pas eu besoin de train pas encore assez d\'images dans la catégorie '+str(categorieNonRemplie)+', il n\'y a que '+str(nbFichiersDansCategorieNonRemplie)+' éléments')
             else:
                 training()
@@ -100,9 +100,9 @@ def trainRoad():
 @app.route('/listeClasse', methods=['POST'])
 def listeClasse():
     if request.method == 'POST':
-        listCategorie = [x[0] for x in os.walk("/Disk/Logos")]
+        listCategorie = [x[0] for x in os.walk("/Disk/PersistantData/Logos/")]
         listCategorie.pop(0)
-        result = [s.replace('/Disk/Logos/','') for s in listCategorie]
+        result = [s.replace('/Disk/PersistantData/Logos/','') for s in listCategorie]
         jsonreturn = json.dumps(result)
         return jsonreturn
 
